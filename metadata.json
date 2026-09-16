@@ -1,0 +1,6 @@
+{
+  "name": "MINA LESTARI",
+  "description": "Aplikasi Bisnis Angkutan Laut MINA LESTARI - Sistem Manajemen Kapal, Pelabuhan, Muatan, dan Laporan Transaksi Laut. Hak Milik: HILMY DAPVFOA.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

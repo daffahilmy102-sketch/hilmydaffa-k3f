@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Anchor, ShieldCheck, Lock, User as UserIcon, ArrowRight, Database, Ship, Waves } from 'lucide-react';
 import { User } from '../types';
+import { apiRequest } from '../lib/api';
 
 interface LoginFormProps {
   onLoginSuccess: (user: User) => void;
@@ -21,16 +22,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/auth/login', {
+      const data = await apiRequest<{ success: boolean; user: User }>('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ usernameOrEmail: identifier, password: pass }),
       });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Login gagal. Periksa username dan password.');
-      }
 
       onLoginSuccess(data.user);
     } catch (err: any) {

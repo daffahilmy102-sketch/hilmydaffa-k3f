@@ -10,6 +10,7 @@ import {
   Shipment,
   ReportOverview,
 } from './types';
+import { apiRequest } from './lib/api';
 import { LoginForm } from './components/LoginForm';
 import { Navbar } from './components/Navbar';
 import { DashboardOverview } from './components/DashboardOverview';
@@ -67,12 +68,9 @@ export default function App() {
   useEffect(() => {
     const checkServerAuth = async () => {
       try {
-        const res = await fetch('/api/auth/me');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.user) {
-            setUser(data.user);
-          }
+        const data = await apiRequest<{ user: AuthUser | null }>('/api/auth/me');
+        if (data?.user) {
+          setUser(data.user);
         }
       } catch (err) {
         console.warn('Initial auth check notice:', err);
@@ -89,21 +87,21 @@ export default function App() {
     setLoading(true);
     setApiError(null);
     try {
-      const [shipsRes, portsRes, custRes, tariffsRes, shipmRes, reportRes] = await Promise.all([
-        fetch('/api/master/ships'),
-        fetch('/api/master/ports'),
-        fetch('/api/master/customers'),
-        fetch('/api/master/tariffs'),
-        fetch('/api/shipments'),
-        fetch('/api/reports/overview'),
+      const [shipsData, portsData, custData, tariffsData, shipmData, reportData] = await Promise.all([
+        apiRequest<Ship[]>('/api/master/ships'),
+        apiRequest<Port[]>('/api/master/ports'),
+        apiRequest<Customer[]>('/api/master/customers'),
+        apiRequest<Tariff[]>('/api/master/tariffs'),
+        apiRequest<Shipment[]>('/api/shipments'),
+        apiRequest<ReportOverview>('/api/reports/overview'),
       ]);
 
-      if (shipsRes.ok) setShips(await shipsRes.json());
-      if (portsRes.ok) setPorts(await portsRes.json());
-      if (custRes.ok) setCustomers(await custRes.json());
-      if (tariffsRes.ok) setTariffs(await tariffsRes.json());
-      if (shipmRes.ok) setShipments(await shipmRes.json());
-      if (reportRes.ok) setReport(await reportRes.json());
+      setShips(shipsData);
+      setPorts(portsData);
+      setCustomers(custData);
+      setTariffs(tariffsData);
+      setShipments(shipmData);
+      setReport(reportData);
     } catch (err: any) {
       setApiError(err.message || 'Gagal memuat data dari database server');
     } finally {
@@ -125,7 +123,7 @@ export default function App() {
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await apiRequest('/api/auth/logout', { method: 'POST' });
     } catch (e) {
       console.error(e);
     }
@@ -138,25 +136,17 @@ export default function App() {
     const url = isEdit ? `/api/master/ships/${editingShip.id}` : '/api/master/ships';
     const method = isEdit ? 'PUT' : 'POST';
 
-    const res = await fetch(url, {
+    await apiRequest(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(shipData),
     });
 
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Gagal menyimpan kapal');
-    }
     await fetchAllData();
   };
 
   const handleDeleteShip = async (id: number) => {
-    const res = await fetch(`/api/master/ships/${id}`, { method: 'DELETE' });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Gagal menghapus kapal');
-    }
+    await apiRequest(`/api/master/ships/${id}`, { method: 'DELETE' });
     await fetchAllData();
   };
 
@@ -166,25 +156,17 @@ export default function App() {
     const url = isEdit ? `/api/master/ports/${editingPort.id}` : '/api/master/ports';
     const method = isEdit ? 'PUT' : 'POST';
 
-    const res = await fetch(url, {
+    await apiRequest(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(portData),
     });
 
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Gagal menyimpan pelabuhan');
-    }
     await fetchAllData();
   };
 
   const handleDeletePort = async (id: number) => {
-    const res = await fetch(`/api/master/ports/${id}`, { method: 'DELETE' });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Gagal menghapus pelabuhan');
-    }
+    await apiRequest(`/api/master/ports/${id}`, { method: 'DELETE' });
     await fetchAllData();
   };
 
@@ -194,25 +176,17 @@ export default function App() {
     const url = isEdit ? `/api/master/customers/${editingCustomer.id}` : '/api/master/customers';
     const method = isEdit ? 'PUT' : 'POST';
 
-    const res = await fetch(url, {
+    await apiRequest(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(custData),
     });
 
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Gagal menyimpan pelanggan');
-    }
     await fetchAllData();
   };
 
   const handleDeleteCustomer = async (id: number) => {
-    const res = await fetch(`/api/master/customers/${id}`, { method: 'DELETE' });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Gagal menghapus pelanggan');
-    }
+    await apiRequest(`/api/master/customers/${id}`, { method: 'DELETE' });
     await fetchAllData();
   };
 
@@ -222,25 +196,17 @@ export default function App() {
     const url = isEdit ? `/api/master/tariffs/${editingTariff.id}` : '/api/master/tariffs';
     const method = isEdit ? 'PUT' : 'POST';
 
-    const res = await fetch(url, {
+    await apiRequest(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(tariffData),
     });
 
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Gagal menyimpan tarif');
-    }
     await fetchAllData();
   };
 
   const handleDeleteTariff = async (id: number) => {
-    const res = await fetch(`/api/master/tariffs/${id}`, { method: 'DELETE' });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Gagal menghapus tarif');
-    }
+    await apiRequest(`/api/master/tariffs/${id}`, { method: 'DELETE' });
     await fetchAllData();
   };
 
@@ -250,25 +216,17 @@ export default function App() {
     const url = isEdit ? `/api/shipments/${editingShipment.id}` : '/api/shipments';
     const method = isEdit ? 'PUT' : 'POST';
 
-    const res = await fetch(url, {
+    await apiRequest(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(shipmentData),
     });
 
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Gagal menyimpan transaksi SPAL');
-    }
     await fetchAllData();
   };
 
   const handleDeleteShipment = async (id: number) => {
-    const res = await fetch(`/api/shipments/${id}`, { method: 'DELETE' });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Gagal menghapus transaksi SPAL');
-    }
+    await apiRequest(`/api/shipments/${id}`, { method: 'DELETE' });
     await fetchAllData();
   };
 
@@ -280,16 +238,12 @@ export default function App() {
     const payload: any = { status };
     if (paymentStatus) payload.payment_status = paymentStatus;
 
-    const res = await fetch(`/api/shipments/${id}/status`, {
+    await apiRequest(`/api/shipments/${id}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
 
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Gagal mengubah status muatan');
-    }
     await fetchAllData();
   };
 

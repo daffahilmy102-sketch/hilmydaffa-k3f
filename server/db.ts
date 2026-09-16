@@ -1,19 +1,97 @@
-import initSqlJs, { Database } from 'sql.js';
+import initSqlJs, { type Database } from 'sql.js';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+function getCurrentDir(): string {
+  try {
+    // In CommonJS runtime (dist/server.cjs), __dirname is defined
+    if (typeof __dirname !== 'undefined' && __dirname) {
+      return __dirname;
+    }
+  } catch {}
+  try {
+    // In ES Module runtime (tsx, Vite, Vercel ESM)
+    if (typeof import.meta !== 'undefined' && import.meta?.url) {
+      return path.dirname(fileURLToPath(import.meta.url));
+    }
+  } catch {}
+  return process.cwd();
+}
 
 let db: Database | null = null;
-const dbDir = path.resolve(process.cwd(), 'data');
-const dbPath = path.resolve(dbDir, 'minalestari.sqlite');
+
+function getDbPaths() {
+  const isVercel = Boolean(
+    process.env.VERCEL ||
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+    process.env.VERCEL_ENV
+  );
+  const dataDir = isVercel ? '/tmp' : path.resolve(process.cwd(), 'data');
+  const dbPath = path.resolve(dataDir, 'minalestari.sqlite');
+  const seedPath = path.resolve(process.cwd(), 'data', 'minalestari.sqlite');
+  return { isVercel, dataDir, dbPath, seedPath };
+}
+
+async function loadWasmBinary(): Promise<Buffer | undefined> {
+  const baseDir = getCurrentDir();
+  const candidates = [
+    path.resolve(process.cwd(), 'node_modules/sql.js/dist/sql-wasm.wasm'),
+    path.resolve(process.cwd(), 'public/sql-wasm.wasm'),
+    path.resolve(baseDir, 'sql-wasm.wasm'),
+    path.resolve(baseDir, '../node_modules/sql.js/dist/sql-wasm.wasm'),
+    path.resolve(baseDir, '../public/sql-wasm.wasm'),
+  ];
+
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) {
+        return fs.readFileSync(p);
+      }
+    } catch {
+      // Ignore read errors and try next
+    }
+  }
+
+  // Fallback: If running in edge / serverless without local node_modules wasm file, load from CDN
+  try {
+    const res = await fetch('https://sql.js.org/dist/sql-wasm.wasm');
+    if (res.ok) {
+      const arrayBuffer = await res.arrayBuffer();
+      return Buffer.from(arrayBuffer);
+    }
+  } catch (err) {
+    console.warn('Could not fetch sql-wasm.wasm from CDN:', err);
+  }
+
+  return undefined;
+}
 
 export async function getDb(): Promise<Database> {
   if (db) return db;
 
-  if (!fs.existsSync(dbDir)) {
-    fs.mkdirSync(dbDir, { recursive: true });
+  const { isVercel, dataDir, dbPath, seedPath } = getDbPaths();
+
+  if (!fs.existsSync(dataDir)) {
+    try {
+      fs.mkdirSync(dataDir, { recursive: true });
+    } catch (err) {
+      console.warn('Warning: Could not create data directory:', err);
+    }
   }
 
-  const SQL = await initSqlJs();
+  // If in Vercel/Serverless and /tmp database does not exist, copy from seeded file
+  if (isVercel && !fs.existsSync(dbPath) && fs.existsSync(seedPath)) {
+    try {
+      fs.copyFileSync(seedPath, dbPath);
+      console.log('Copied seeded SQLite database to /tmp/minalestari.sqlite');
+    } catch (err) {
+      console.warn('Could not copy seeded database to /tmp:', err);
+    }
+  }
+
+  const wasmBinary = await loadWasmBinary();
+  const SQL = await initSqlJs(wasmBinary ? { wasmBinary } : {});
 
   if (fs.existsSync(dbPath)) {
     try {
@@ -37,6 +115,7 @@ export async function getDb(): Promise<Database> {
 export function persistDb() {
   if (!db) return;
   try {
+    const { dbPath } = getDbPaths();
     const data = db.export();
     const buffer = Buffer.from(data);
     fs.writeFileSync(dbPath, buffer);

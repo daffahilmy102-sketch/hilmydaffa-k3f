@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api"
+    },
+    {
+      "source": "/((?!api/|.*\\.[\\w]+$).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "{node_modules/sql.js/dist/sql-wasm.wasm,public/sql-wasm.wasm,data/minalestari.sqlite}"
+    },
+    "api/index.ts": {
+      "includeFiles": "{node_modules/sql.js/dist/sql-wasm.wasm,public/sql-wasm.wasm,data/minalestari.sqlite}"
+    }
+  }
+}
